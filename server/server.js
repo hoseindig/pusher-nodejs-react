@@ -1,19 +1,21 @@
-// server.js (Express)
-
 import express from 'express';
 import bodyParser from 'body-parser';
 import Pusher from 'pusher';
 import dotenv from 'dotenv';
-import cors from 'cors';
 
-dotenv.config(); // بارگذاری مقادیر از فایل .env
+dotenv.config(); // بارگذاری مقادیر از .env
 
 const app = express();
 const port = 5000;
 
+// تنظیمات پشتیبانی از CORS
+import cors from 'cors';
+app.use(cors());
+
+// استفاده از body-parser برای پردازش درخواست‌های JSON
 app.use(bodyParser.json());
-app.use(cors());  // اضافه کردن CORS به سرور
-// تنظیمات Pusher با استفاده از مقادیر از فایل .env
+
+// تنظیمات Pusher
 const pusher = new Pusher({
     appId: process.env.PUSHER_APP_ID,
     key: process.env.PUSHER_KEY,
@@ -22,18 +24,23 @@ const pusher = new Pusher({
     useTLS: true,
 });
 
-// مسیر API برای ارسال پیام
+// مسیر ارسال پیام
 app.post('/api/send-message', (req, res) => {
     const { message } = req.body;
 
-    // ارسال پیام به کانال Pusher
+    console.log('Sending message:', message);  // اضافه کردن لاگ برای بررسی پیام دریافتی
+
     pusher.trigger('my-channel', 'my-event', {
         message,
+    }).then(() => {
+        console.log('Message sent to Pusher');
+    }).catch((error) => {
+        console.error('Error sending message to Pusher:', error);
     });
-    console.log('message', message);
+
     res.status(200).json({ success: true });
 });
 
 app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
+    console.log(`Server is running on http://localhost:${port}`);
 });

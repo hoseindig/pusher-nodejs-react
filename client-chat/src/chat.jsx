@@ -24,25 +24,31 @@ export default function Chat() {
 
     useEffect(() => {
         // اتصال به Pusher
-        const pusher = new Pusher(process.env.REACT_APP_PUSHER_KEY, {
-            cluster: process.env.REACT_APP_PUSHER_CLUSTER,
+        const pusher = new Pusher('97eaa6ad75fb169d4d45', {
+            cluster: 'eu',
+            encrypted: true,
+            logToConsole: true,  // این گزینه باعث می‌شود که لاگ‌های اضافی در کنسول ظاهر شوند
         });
 
         const channel = pusher.subscribe('my-channel');
 
+        // اضافه کردن لاگ برای بررسی اتصال
+        channel.bind('pusher:subscription_succeeded', function () {
+            console.log('Successfully connected to Pusher!');
+        });
+
         // گوش دادن به رویداد 'my-event'
         channel.bind('my-event', (data) => {
-            // افزودن پیام جدید به لیست پیام‌ها
+            console.log('Received message:', data);
             setMessages((prevMessages) => [...prevMessages, data.message]);
-            console.log('Received message:', data.message);
         });
 
         return () => {
-            // پاک‌سازی: قطع اتصال از Pusher
             channel.unbind_all();
             channel.unsubscribe();
         };
-    }, []); // فقط یک‌بار در ابتدای بارگذاری اجرا می‌شود
+    }, []);
+
 
     return (
         <div>

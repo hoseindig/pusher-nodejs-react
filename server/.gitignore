@@ -1,0 +1,44 @@
+# Dependency directories
+node_modules/
+
+# Environment variables
+.env
+.env.local
+.env.*
+!.env.example  # Keep example env files
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+logs/
+
+# Build/Output directories
+dist/
+build/
+out/
+coverage/
+*.tsbuildinfo
+
+# Cache
+.cache/
+.temp/
+
+# Package manager specific
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# IDE/Editor
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS-generated files
+.DS_Store
+Thumbs.db

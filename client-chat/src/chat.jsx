@@ -1,59 +1,87 @@
-import { useState, useEffect } from 'react';
 import Pusher from 'pusher-js';
+import { useState, useEffect } from 'react';
 
 export default function Chat() {
-    const [messages, setMessages] = useState([]); // لیست پیام‌ها
-    const [message, setMessage] = useState('');  // پیام وارد شده
+    const [messages, setMessages] = useState([]);
+    const [message, setMessage] = useState('');
+    const [userId, setUserId] = useState('11');
+    const [isAdmin, setIsAdmin] = useState(false);
 
-    // ارسال پیام به سرور
+    // ارسال پیام از کاربر به ادمین
     const sendMessage = async () => {
-        const response = await fetch('http://localhost:5000/api/send-message', {  // آدرس صحیح API
+        const response = await fetch('http://localhost:5000/api/send-message', {
             method: 'POST',
-            body: JSON.stringify({ message }),
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            body: JSON.stringify({ fromUserId: userId, message }),
+            headers: { 'Content-Type': 'application/json' },
         });
 
         if (response.ok) {
-            setMessage(''); // پاک کردن ورودی بعد از ارسال
-        } else {
-            console.error('Failed to send message');
+            setMessage('');
+        }
+    };
+
+    // ارسال پیام از ادمین به کاربر
+    const sendToUser = async (toUserId, message) => {
+        const response = await fetch('http://localhost:5000/api/send-to-user', {
+            method: 'POST',
+            body: JSON.stringify({ toUserId, message }),
+            headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (response.ok) {
+            setMessage('');
         }
     };
 
     useEffect(() => {
-        // اتصال به Pusher
-        const pusher = new Pusher('97eaa6ad75fb169d4d45', {
-            cluster: 'eu',
-            encrypted: true,
-            logToConsole: true,  // این گزینه باعث می‌شود که لاگ‌های اضافی در کنسول ظاهر شوند
-        });
+        let pusher;
 
-        const channel = pusher.subscribe('my-channel');
+        if (isAdmin) {
+            // اگر ادمین است به کانال ادمین متصل می‌شود
+            pusher = new Pusher(process.env.REACT_APP_PUSHER_KEY, {
+                cluster: process.env.REACT_APP_PUSHER_CLUSTER,
+                // authEndpoint: 'http://localhost:5000/pusher/auth', // اینجا درستش کن
+                encrypted: true,
+                auth: {
+                    params: {
+                        user_id: userId,  // اینجا اضافه کن
+                    },
+                },
+            });
 
-        // اضافه کردن لاگ برای بررسی اتصال
-        channel.bind('pusher:subscription_succeeded', function () {
-            console.log('Successfully connected to Pusher!');
-        });
+            const channel = pusher.subscribe('private-admin-channel');
+            channel.bind('new-message', (data) => {
+                setMessages((prevMessages) => [...prevMessages, `From User ${data.fromUserId}: ${data.message}`]);
+            });
+        } else {
+            // اگر کاربر است به کانال خصوصی خودش متصل می‌شود
+            pusher = new Pusher(process.env.REACT_APP_PUSHER_KEY, {
+                cluster: process.env.REACT_APP_PUSHER_CLUSTER,
+                authEndpoint: 'http://localhost:5000/pusher/auth', // اینجا درستش کن
+                encrypted: true,
+                auth: {
+                    params: {
+                        user_id: userId,  // اینجا اضافه کن
+                    },
+                },
+            });
 
-        // گوش دادن به رویداد 'my-event'
-        channel.bind('my-event', (data) => {
-            console.log('Received message:', data);
-            setMessages((prevMessages) => [...prevMessages, data.message]);
-        });
+            const channel = pusher.subscribe(`private-user-${userId}`);
+            channel.bind('new-message', (data) => {
+                setMessages((prevMessages) => [...prevMessages, `From Admin: ${data.message}`]);
+            });
+        }
 
         return () => {
-            channel.unbind_all();
-            channel.unsubscribe();
+            if (pusher) {
+                pusher.disconnect();
+            }
         };
-    }, []);
-
+    }, [userId, isAdmin]);
 
     return (
         <div>
             <div>
-                {/* نمایش پیام‌ها */}
                 {messages.map((msg, index) => (
                     <p key={index}>{msg}</p>
                 ))}
@@ -61,11 +89,22 @@ export default function Chat() {
             <div>
                 <input
                     type="text"
+                    value={userId}
+                    placeholder='userId'
+                    onChange={(e) => setUserId(e.target.value)}
+                />
+                <input
+                    type="text"
                     value={message}
-                    onChange={(e) => setMessage(e.target.value)} // به‌روزرسانی پیام
+                    placeholder='message'
+                    onChange={(e) => setMessage(e.target.value)}
                 />
                 <button onClick={sendMessage}>Send Message</button>
+                {!isAdmin && <button button onClick={() => setIsAdmin(true)}>setIsAdmin</button>}
+                {isAdmin && (
+                    <button onClick={() => sendToUser('user1', message)}>Send to User1</button>
+                )}
             </div>
-        </div>
+        </div >
     );
 }

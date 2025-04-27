@@ -12,8 +12,14 @@ const port = 5000;
 import cors from 'cors';
 app.use(cors());
 
+app.use(cors({
+    origin: 'http://localhost:3000', // اجازه بده درخواست از 3000 بیاد
+    credentials: true, // اگر نیاز به ارسال کوکی یا هدر خاص داری
+}));
+
 // استفاده از body-parser برای پردازش درخواست‌های JSON
-app.use(bodyParser.json());
+app.use(bodyParser.json()); // برای application/json
+app.use(bodyParser.urlencoded({ extended: true })); // برای application/x-www-form-urlencoded
 
 // تنظیمات Pusher
 const pusher = new Pusher({
@@ -24,23 +30,55 @@ const pusher = new Pusher({
     useTLS: true,
 });
 
-// مسیر ارسال پیام
+// ارسال پیام از کاربر به ادمین
 app.post('/api/send-message', (req, res) => {
-    const { message } = req.body;
+    const { fromUserId, message } = req.body;
 
-    console.log('Sending message:', message);  // اضافه کردن لاگ برای بررسی پیام دریافتی
-
-    pusher.trigger('my-channel', 'my-event', {
+    // ارسال پیام به کانال خصوصی ادمین
+    pusher.trigger('private-admin-channel', 'new-message', {
         message,
-    }).then(() => {
-        console.log('Message sent to Pusher');
-    }).catch((error) => {
-        console.error('Error sending message to Pusher:', error);
+        fromUserId,
     });
 
     res.status(200).json({ success: true });
 });
 
-app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
+// ارسال پیام از ادمین به کاربر خاص
+app.post('/api/send-to-user', (req, res) => {
+    const { toUserId, message } = req.body;
+
+    // ارسال پیام به کانال خصوصی کاربر
+    pusher.trigger(`private-user-${toUserId}`, 'new-message', {
+        message,
+        fromUserId: 'admin', // ارسال از طرف ادمین
+    });
+
+    res.status(200).json({ success: true });
+});
+
+// احراز هویت برای کانال‌های خصوصی
+app.post('/pusher/auth', (req, res) => {
+    const { socket_id, channel_name, user_id } = req.body;
+    console.log(socket_id, channel_name, user_id);
+    if (!socket_id || !channel_name || !user_id) {
+        return res.status(400).send('Missing parameters');
+    }
+
+    const isAdmin = user_id === 'admin';
+
+    if (
+        (isAdmin && channel_name === 'private-admin-channel') ||
+        (!isAdmin && channel_name === `private-user-${user_id}`)
+    ) {
+        const auth = pusher.authenticate(socket_id, channel_name);
+        res.send(auth);
+    } else {
+        res.status(403).send('Not authorized to subscribe to this channel');
+    }
+});
+
+
+
+app.listen(5000, () => {
+    console.log('Server is running on port 5000');
 });
